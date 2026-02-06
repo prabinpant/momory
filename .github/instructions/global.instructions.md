@@ -17,6 +17,29 @@ memory = external store + retrieval + compaction + intelligence
 
 **Core Thesis**: The LLM is stateless. All memory is external, selective, and retrieved on-demand.
 
+**Current Status**: Phase 2 in progress - Implementing chunking strategy (Clawdbot-inspired)
+
+---
+
+## 0. Key Implementation Decisions
+
+### Storage Architecture
+
+- **Database**: SQLite (single source of truth)
+- **Individual Memories**: NOT chunked (already atomic facts)
+- **Summaries**: CHUNKED before embedding (400 tokens, 80 overlap)
+
+### Code Style
+
+- **Paradigm**: Functional (no classes)
+- **Error Handling**: Result types (no exceptions in core logic)
+- **Typing**: Strict TypeScript, explicit return types
+
+### Cost Considerations
+
+- **Optimization**: Embedding cache (LRU, 1000 entries)
+- **Future**: Consider batching extraction, skip trivial inputs
+
 ---
 
 ## 1. System Architecture
