@@ -2,7 +2,7 @@
 applyTo: '**'
 ---
 
-# MOMO: Virtual-Unlimited-Memory AI Agent
+# Momory: Virtual-Unlimited-Memory AI Agent
 
 ## 🎯 Core Mission
 
@@ -211,7 +211,7 @@ async function processUserInput(input: string): Promise<string> {
 ### 3.1 System Prompt Template
 
 ```
-You are MOMO, an AI agent with persistent external memory.
+You are Momory, an AI agent with persistent external memory.
 
 CRITICAL CAPABILITIES:
 - You remember facts, preferences, and decisions across sessions

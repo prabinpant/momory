@@ -1,4 +1,4 @@
-# MOMO
+# Momory
 
 **Virtual-Unlimited-Memory AI Agent**
 
@@ -45,7 +45,7 @@ The LLM (Gemini) is stateless. All memory is external, selective, and retrieved 
 
 ### Chunking Strategy
 
-Inspired by [Clawdbot](https://github.com/clawdbot/clawdbot), MOMO uses chunking to prevent embedding dilution:
+Inspired by [Clawdbot](https://github.com/clawdbot/clawdbot), Momory uses chunking to prevent embedding dilution:
 
 ```typescript
 // Problem: Mixed-topic content creates diluted embeddings
