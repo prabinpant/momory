@@ -1,5 +1,9 @@
 import { getConfig, getLogger } from './utils/index.js';
-import { initializeStorage } from './services/index.js';
+import {
+  initializeStorage,
+  generateText,
+  generateEmbedding,
+} from './services/index.js';
 
 async function main(): Promise<void> {
   const logger = getLogger();
@@ -14,6 +18,25 @@ async function main(): Promise<void> {
 
     initializeStorage();
     logger.info('Storage initialized');
+
+    // Test Gemini connection
+    logger.info('Testing Gemini API...');
+    const testResult = await generateText('Say "Hello" in one word');
+    if (!testResult.ok) {
+      throw new Error(`Gemini test failed: ${testResult.error.message}`);
+    }
+    logger.info('Gemini API working', { response: testResult.value });
+
+    // Test embedding generation
+    const embeddingResult = await generateEmbedding('test text');
+    if (!embeddingResult.ok) {
+      throw new Error(
+        `Embedding test failed: ${embeddingResult.error.message}`
+      );
+    }
+    logger.info('Embedding generation working', {
+      dimensions: embeddingResult.value.length,
+    });
 
     logger.info('MOMO ready');
   } catch (error) {
