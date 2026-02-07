@@ -3,6 +3,27 @@
  */
 
 /**
+ * Normalize keyword for spelling variations (British vs American English)
+ */
+function normalizeKeyword(word: string): string {
+  // British -> American spelling normalization
+  const normalizations: Record<string, string> = {
+    travelling: 'traveling',
+    cancelled: 'canceled',
+    colour: 'color',
+    favour: 'favor',
+    centre: 'center',
+    metre: 'meter',
+    theatre: 'theater',
+    analyse: 'analyze',
+    organise: 'organize',
+    realise: 'realize',
+  };
+
+  return normalizations[word] || word;
+}
+
+/**
  * Extract keywords from text (simple tokenization)
  */
 export function extractKeywords(text: string): string[] {
@@ -12,7 +33,8 @@ export function extractKeywords(text: string): string[] {
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
     .filter((word) => word.length > 2) // Remove short words
-    .filter((word) => !STOP_WORDS.has(word)); // Remove stop words
+    .filter((word) => !STOP_WORDS.has(word)) // Remove stop words
+    .map((word) => normalizeKeyword(word)); // Normalize spelling
 }
 
 /**

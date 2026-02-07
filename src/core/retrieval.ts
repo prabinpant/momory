@@ -41,9 +41,11 @@ function preprocessQuery(query: string): string {
 
   // Convert questions to statements for better matching
   // "do you have my name?" -> "my name"
+  // "do I love travelling?" -> "love travelling"
   // "what is my name?" -> "my name"
   const questionPatterns = [
     { pattern: /do you (have|know|remember)\s+(.+?)\?/i, replace: '$2' },
+    { pattern: /do I (\w+)\s+(.+?)\?/i, replace: '$1 $2' }, // "do I love X?" -> "love X"
     { pattern: /what is\s+(.+?)\?/i, replace: '$1' },
     { pattern: /what's\s+(.+?)\?/i, replace: '$1' },
     { pattern: /where is\s+(.+?)\?/i, replace: '$1' },
@@ -169,11 +171,16 @@ export async function retrieveContext(
     const hybridResults = memoryResults.map((result) => {
       const memory = result.data as Memory;
       const keywordScore = calculateKeywordScore(queryKeywords, memory.content);
-      const hybridScore = calculateHybridScore(
-        result.similarity,
-        keywordScore,
-        0.7 // 70% vector, 30% keyword
-      );
+      
+      // If vector similarity is very high (>0.7), use it directly (don't let keywords drag it down)
+      // Otherwise, blend vector (80%) + keyword (20%)
+      const hybridScore = result.similarity >= 0.7 
+        ? result.similarity // High vector confidence - trust it!
+        : calculateHybridScore(
+            result.similarity,
+            keywordScore,
+            0.8 // 80% vector, 20% keyword
+          );
 
       return {
         ...result,
