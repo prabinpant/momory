@@ -36,15 +36,29 @@ export interface ConversationTurn {
 }
 
 /**
- * Summary Memory structure
+ * Summary Memory metadata (content is in chunks)
  */
 export interface SummaryMemory {
   id: string;
   timeWindow: 'daily' | 'weekly' | 'monthly';
   startDate: number;
   endDate: number;
-  content: string;
   memoryCount: number; // Number of memories compressed
+  createdAt: number;
+}
+
+/**
+ * Summary chunk with embedding
+ */
+export interface SummaryChunk {
+  id: string;
+  summaryId: string;
+  content: string;
+  embedding: number[];
+  startLine: number;
+  endLine: number;
+  charStart: number;
+  charEnd: number;
   createdAt: number;
 }
 

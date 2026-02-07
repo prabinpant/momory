@@ -1,12 +1,13 @@
 import { randomUUID } from 'crypto';
 import { query, execute, queryOne } from '../services/storage.js';
 import { generateEmbedding } from '../services/gemini.js';
-import { getLogger } from '../utils/logger.js';
+import { getLogger, chunkText, DEFAULT_CHUNK_OPTIONS } from '../utils/index.js';
 import {
   Memory,
   MemoryCandidate,
   MemoryType,
   SummaryMemory,
+  SummaryChunk,
   Result,
   success,
   failure,
@@ -288,10 +289,11 @@ export async function getOldMemories(
 }
 
 /**
- * Save a summary memory
+ * Save a summary with chunked content
  */
 export async function saveSummary(
-  summary: Omit<SummaryMemory, 'id'> & { id?: string }
+  summary: Omit<SummaryMemory, 'id'> & { id?: string },
+  content: string
 ): Promise<Result<SummaryMemory, Error>> {
   try {
     const summaryWithId: SummaryMemory = {
@@ -299,30 +301,70 @@ export async function saveSummary(
       id: summary.id || randomUUID(),
     };
 
-    const result = execute(
+    // Save summary metadata (no content)
+    const metadataResult = execute(
       `INSERT INTO summaries (
         id, time_window, start_date, end_date,
-        content, memory_count, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        memory_count, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         summaryWithId.id,
         summaryWithId.timeWindow,
         summaryWithId.startDate,
         summaryWithId.endDate,
-        summaryWithId.content,
         summaryWithId.memoryCount,
         summaryWithId.createdAt,
       ]
     );
 
-    if (!result.ok) {
-      return failure(result.error);
+    if (!metadataResult.ok) {
+      return failure(metadataResult.error);
     }
 
-    logger.info('Summary saved', {
+    // Chunk the content
+    const chunks = chunkText(content, DEFAULT_CHUNK_OPTIONS);
+
+    logger.info('Summary chunked', {
+      summaryId: summaryWithId.id,
+      totalChunks: chunks.length,
+      avgChunkSize: Math.round(content.length / chunks.length),
+    });
+
+    // Embed and save each chunk
+    for (const chunk of chunks) {
+      const embeddingResult = await generateEmbedding(chunk.text);
+      if (!embeddingResult.ok) {
+        return failure(embeddingResult.error);
+      }
+
+      const chunkResult = execute(
+        `INSERT INTO summary_chunks (
+          id, summary_id, content, embedding,
+          start_line, end_line, char_start, char_end, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          summaryWithId.id,
+          chunk.text,
+          JSON.stringify(embeddingResult.value),
+          chunk.startLine,
+          chunk.endLine,
+          chunk.charStart,
+          chunk.charEnd,
+          Date.now(),
+        ]
+      );
+
+      if (!chunkResult.ok) {
+        return failure(chunkResult.error);
+      }
+    }
+
+    logger.info('Summary saved with chunks', {
       id: summaryWithId.id,
       timeWindow: summaryWithId.timeWindow,
       memoryCount: summaryWithId.memoryCount,
+      chunks: chunks.length,
     });
 
     return success(summaryWithId);
@@ -335,7 +377,98 @@ export async function saveSummary(
 }
 
 /**
- * Get the latest summary
+ * Get all summary chunks
+ */
+export async function getAllSummaryChunks(): Promise<
+  Result<SummaryChunk[], Error>
+> {
+  try {
+    const result = query<{
+      id: string;
+      summary_id: string;
+      content: string;
+      embedding: string;
+      start_line: number;
+      end_line: number;
+      char_start: number;
+      char_end: number;
+      created_at: number;
+    }>('SELECT * FROM summary_chunks ORDER BY created_at DESC');
+
+    if (!result.ok) {
+      return failure(result.error);
+    }
+
+    const chunks: SummaryChunk[] = result.value.map((row) => ({
+      id: row.id,
+      summaryId: row.summary_id,
+      content: row.content,
+      embedding: JSON.parse(row.embedding),
+      startLine: row.start_line,
+      endLine: row.end_line,
+      charStart: row.char_start,
+      charEnd: row.char_end,
+      createdAt: row.created_at,
+    }));
+
+    return success(chunks);
+  } catch (error) {
+    logger.error('Failed to get summary chunks', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return failure(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * Get summary chunks by summary ID
+ */
+export async function getSummaryChunks(
+  summaryId: string
+): Promise<Result<SummaryChunk[], Error>> {
+  try {
+    const result = query<{
+      id: string;
+      summary_id: string;
+      content: string;
+      embedding: string;
+      start_line: number;
+      end_line: number;
+      char_start: number;
+      char_end: number;
+      created_at: number;
+    }>(
+      'SELECT * FROM summary_chunks WHERE summary_id = ? ORDER BY start_line ASC',
+      [summaryId]
+    );
+
+    if (!result.ok) {
+      return failure(result.error);
+    }
+
+    const chunks: SummaryChunk[] = result.value.map((row) => ({
+      id: row.id,
+      summaryId: row.summary_id,
+      content: row.content,
+      embedding: JSON.parse(row.embedding),
+      startLine: row.start_line,
+      endLine: row.end_line,
+      charStart: row.char_start,
+      charEnd: row.char_end,
+      createdAt: row.created_at,
+    }));
+
+    return success(chunks);
+  } catch (error) {
+    logger.error('Failed to get summary chunks', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return failure(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * Get the latest summary (metadata only)
  */
 export async function getLatestSummary(): Promise<
   Result<SummaryMemory | null, Error>
@@ -346,7 +479,6 @@ export async function getLatestSummary(): Promise<
       time_window: 'daily' | 'weekly' | 'monthly';
       start_date: number;
       end_date: number;
-      content: string;
       memory_count: number;
       created_at: number;
     }>('SELECT * FROM summaries ORDER BY created_at DESC LIMIT 1');
@@ -365,7 +497,6 @@ export async function getLatestSummary(): Promise<
       timeWindow: row.time_window,
       startDate: row.start_date,
       endDate: row.end_date,
-      content: row.content,
       memoryCount: row.memory_count,
       createdAt: row.created_at,
     };
