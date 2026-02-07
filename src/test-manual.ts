@@ -18,6 +18,7 @@ import {
   estimatePromptTokens,
   formatMemories,
 } from './core/prompts.js';
+import { processInput, AgentSession } from './core/agent.js';
 import { generateText, generateEmbedding } from './services/gemini.js';
 import { cosineSimilarity } from './utils/vector.js';
 import { chunkText } from './utils/chunking.js';
@@ -352,6 +353,75 @@ async function testPromptConstruction() {
   }
 }
 
+async function testAgent() {
+  console.log('\n=== TEST 8: Complete Agent Execution ===');
+
+  const session = new AgentSession();
+
+  // Test 1: Simple query
+  console.log('  Interaction 1: Ask about programming');
+  const result1 = await processInput(
+    'What programming languages do I know?',
+    session
+  );
+
+  if (result1.ok) {
+    console.log('  ✅ Agent response:');
+    console.log(`     "${result1.value.message.substring(0, 150)}..."`);
+    console.log(
+      `     Retrieved: ${result1.value.retrievalStats.memoriesFound} memories`
+    );
+    console.log(
+      `     Extracted: ${result1.value.memoriesExtracted} new memories`
+    );
+    console.log(`     Prompt tokens: ${result1.value.promptTokens}`);
+  } else {
+    console.log('  ❌ Failed:', result1.error.message);
+    return;
+  }
+
+  // Test 2: Follow-up with new information
+  console.log('\n  Interaction 2: Provide new information');
+  const result2 = await processInput(
+    'I also work with TypeScript and recently started learning Rust',
+    session
+  );
+
+  if (result2.ok) {
+    console.log('  ✅ Agent response:');
+    console.log(`     "${result2.value.message.substring(0, 150)}..."`);
+    console.log(
+      `     Extracted: ${result2.value.memoriesExtracted} new memories`
+    );
+  }
+
+  // Test 3: Recall the new information
+  console.log('\n  Interaction 3: Test memory recall');
+  const result3 = await processInput(
+    'What programming languages did I just mention?',
+    session
+  );
+
+  if (result3.ok) {
+    console.log('  ✅ Agent response:');
+    console.log(`     "${result3.value.message.substring(0, 200)}..."`);
+    console.log(
+      `     Retrieved: ${result3.value.retrievalStats.memoriesFound} memories`
+    );
+  }
+
+  // Test 4: Check conversation history
+  console.log('\n  Session state:');
+  console.log(`     History turns: ${session.getHistory().length}`);
+  console.log('     Last 2 turns:');
+  session
+    .getHistory()
+    .slice(-2)
+    .forEach((turn) => {
+      console.log(`       ${turn.role}: "${turn.content.substring(0, 60)}..."`);
+    });
+}
+
 async function showDatabaseState() {
   console.log('\n=== DATABASE STATE ===');
 
@@ -402,6 +472,7 @@ async function main() {
     await testSummarySaving();
     await testRetrieval();
     await testPromptConstruction();
+    await testAgent();
     await showDatabaseState();
 
     console.log('\n✅ All tests complete!');

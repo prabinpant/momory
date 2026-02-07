@@ -15,6 +15,7 @@ export interface Config {
     relevanceThreshold: number;
     decayRate: number;
     summaryThreshold: number;
+    maxPromptTokens: number;
   };
 
   // Performance

@@ -29,6 +29,7 @@ export function loadConfig(): Config {
         process.env.MEMORY_SUMMARY_THRESHOLD || '100',
         10
       ),
+      maxPromptTokens: parseInt(process.env.MAX_PROMPT_TOKENS || '8192', 10),
     },
     performance: {
       maxPromptSize: parseInt(process.env.MAX_PROMPT_SIZE || '8192', 10),
