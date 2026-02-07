@@ -11,6 +11,7 @@ import {
   saveSummary,
   getAllSummaryChunks,
 } from './core/memory.js';
+import { retrieveContext, searchMemories } from './core/retrieval.js';
 import { generateText, generateEmbedding } from './services/gemini.js';
 import { cosineSimilarity } from './utils/vector.js';
 import { chunkText } from './utils/chunking.js';
@@ -177,6 +178,96 @@ User Profile Summary:
   }
 }
 
+async function testRetrieval() {
+  console.log('\n=== TEST 6: Context Retrieval ===');
+
+  // Add more diverse memories for better testing
+  const testMemories = [
+    {
+      type: 'fact' as const,
+      content: 'User is a senior Python developer with 10 years experience',
+      confidence: 0.95,
+      tags: ['programming', 'python', 'experience'],
+    },
+    {
+      type: 'preference' as const,
+      content: 'User prefers PostgreSQL over MySQL for analytics',
+      confidence: 0.9,
+      tags: ['database', 'postgresql'],
+    },
+    {
+      type: 'fact' as const,
+      content: 'User loves Italian food, especially pizza and pasta',
+      confidence: 0.85,
+      tags: ['food', 'italian'],
+    },
+    {
+      type: 'observation' as const,
+      content: 'User travels frequently to Asia, particularly Japan',
+      confidence: 0.8,
+      tags: ['travel', 'japan', 'asia'],
+    },
+  ];
+
+  console.log('  Adding test memories...');
+  for (const mem of testMemories) {
+    await saveMemory(mem);
+  }
+  console.log(`  ✅ Added ${testMemories.length} memories\n`);
+
+  // Test 1: Programming query
+  console.log('  Query 1: "What programming languages does the user know?"');
+  const result1 = await retrieveContext(
+    'What programming languages does the user know?'
+  );
+
+  if (result1.ok) {
+    console.log(
+      `  ✅ Found ${result1.value.memories.length} relevant memories`
+    );
+    result1.value.memories.forEach((m, i) => {
+      console.log(
+        `     ${i + 1}. [${m.similarity.toFixed(3)}] ${m.memory.content.substring(0, 60)}...`
+      );
+    });
+    if (result1.value.summaryChunks.length > 0) {
+      console.log(
+        `  ✅ Found ${result1.value.summaryChunks.length} relevant summary chunks`
+      );
+    }
+  }
+
+  // Test 2: Food query
+  console.log('\n  Query 2: "What food does the user like?"');
+  const result2 = await searchMemories('What food does the user like?', 5);
+
+  if (result2.ok) {
+    console.log(`  ✅ Found ${result2.value.length} relevant memories`);
+    result2.value.forEach((m, i) => {
+      console.log(
+        `     ${i + 1}. [${m.similarity.toFixed(3)}] ${m.memory.content.substring(0, 60)}...`
+      );
+    });
+  }
+
+  // Test 3: Low relevance query (should find less)
+  console.log('\n  Query 3: "Tell me about cars" (unrelated query)');
+  const result3 = await searchMemories('Tell me about cars', 5);
+
+  if (result3.ok) {
+    console.log(`  ✅ Found ${result3.value.length} relevant memories`);
+    if (result3.value.length === 0) {
+      console.log('     (No relevant memories - threshold filtered them out)');
+    } else {
+      result3.value.forEach((m, i) => {
+        console.log(
+          `     ${i + 1}. [${m.similarity.toFixed(3)}] ${m.memory.content.substring(0, 60)}...`
+        );
+      });
+    }
+  }
+}
+
 async function showDatabaseState() {
   console.log('\n=== DATABASE STATE ===');
 
@@ -225,6 +316,7 @@ async function main() {
     await testVectorSimilarity();
     await testChunking();
     await testSummarySaving();
+    await testRetrieval();
     await showDatabaseState();
 
     console.log('\n✅ All tests complete!');
