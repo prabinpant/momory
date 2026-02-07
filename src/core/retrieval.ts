@@ -171,16 +171,17 @@ export async function retrieveContext(
     const hybridResults = memoryResults.map((result) => {
       const memory = result.data as Memory;
       const keywordScore = calculateKeywordScore(queryKeywords, memory.content);
-      
+
       // If vector similarity is very high (>0.7), use it directly (don't let keywords drag it down)
       // Otherwise, blend vector (80%) + keyword (20%)
-      const hybridScore = result.similarity >= 0.7 
-        ? result.similarity // High vector confidence - trust it!
-        : calculateHybridScore(
-            result.similarity,
-            keywordScore,
-            0.8 // 80% vector, 20% keyword
-          );
+      const hybridScore =
+        result.similarity >= 0.7
+          ? result.similarity // High vector confidence - trust it!
+          : calculateHybridScore(
+              result.similarity,
+              keywordScore,
+              0.8 // 80% vector, 20% keyword
+            );
 
       return {
         ...result,
